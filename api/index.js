@@ -23,8 +23,8 @@ module.exports = async (req, res) => {
     const text = await response.text();
     
     let definition = "";
-    
-    // Attempt JSON‑LD extraction first
+
+    // 1. Attempt to extract from JSON‑LD first.
     const ldScriptMatch = text.match(/<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/i);
     if (ldScriptMatch) {
       try {
@@ -47,11 +47,11 @@ module.exports = async (req, res) => {
           definition = jsonLD.description || "";
         }
       } catch (e) {
-        // ignore JSON parsing errors
+        // Ignore JSON parsing errors.
       }
     }
     
-    // Fallback to meta description if JSON-LD is empty or only digits
+    // If the JSON‑LD result is missing or is only digits (like "1"), fallback:
     if (!definition || definition.trim() === "" || /^\d+$/.test(definition.trim())) {
       const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
       if (metaMatch) {
@@ -59,23 +59,23 @@ module.exports = async (req, res) => {
       }
     }
     
-    // If the definition still appears invalid (e.g. just "1"), use a fallback:
-    if (!definition || /^\d+$/.test(definition.trim())) {
-      // Try to extract the first <li> element with class "j"
-      const liMatch = text.match(/<li[^>]*class="[^"]*\bj\b[^"]*"[^>]*>([\s\S]*?)<\/li>/i);
-      if (liMatch) {
-        // Remove HTML tags
-        let rawDef = liMatch[1].replace(/<[^>]+>/g, ' ').trim();
-        // Remove any leading numbering and markers (like "1. f." or "1. m. y f.")
-        rawDef = rawDef.replace(/^\d+\.\s*[mf\.]*\s*/i, '');
-        definition = rawDef;
-      }
+    // At this point, definition might be something like:
+    // "1. f. Edificio para habitar. Una casa de ocho plantas. 2. f. Edificio de una o pocas plantas destinado a vivienda unifamiliar, ..."
+    
+    // 2. Remove a leading marker. We'll try to remove patterns like "1. f." or "m. y f." at the beginning.
+    // The pattern below looks for one or more digits, a period, optional whitespace, then either "f." or "m. y f." (case insensitive).
+    definition = definition.replace(/^\d+\.\s*(?:m\. ?y ?f\.|[mf]\.?)\s*/i, '').trim();
+
+    // 3. Now, extract only the first sentence.
+    // We'll assume that the definition ends at the first period that is followed by a space and an uppercase letter (which indicates a new sentence).
+    const sentenceMatch = definition.match(/^([^\.]+)\./);
+    if (sentenceMatch) {
+      definition = sentenceMatch[1].trim();
     }
     
-    // Optionally, you might want to further split by a period and take the first sentence:
-    if (definition) {
-      const sentences = definition.split(/\. +/);
-      definition = sentences[0].trim();
+    // If after our cleaning the definition is still empty or just digits, fallback to a generic message.
+    if (!definition || /^\d+$/.test(definition)) {
+      definition = "Definition not found.";
     }
     
     return res.json({ word, definition });

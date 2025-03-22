@@ -1,5 +1,5 @@
 {
-  "name": "rae-dictionary-proxy",
+  "name": "ra-edictionary",
   "version": "1.0.0",
   "description": "A simple proxy API for RAE dictionary definitions",
   "main": "api/index.js",

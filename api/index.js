@@ -22,20 +22,24 @@ module.exports = async (req, res) => {
     
     const text = await response.text();
     
-    // Extract meta description using regex
+    // Extract the meta description content using regex
     const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
     if (metaMatch) {
       let metaContent = metaMatch[1].trim();
-      // Remove the leading marker "1. f." if present
-      metaContent = metaContent.replace(/^1\.\s*f\.\s*/i, '');
-      // Split the string into sentences using the period as a delimiter
-      const sentences = metaContent.split('.');
-      // Take the first sentence (the definition) and trim any extra spaces
-      let definition = sentences[0].trim();
-      // If the first sentence is empty, set a fallback message
-      if (!definition) {
-        definition = "Definition not found.";
+      
+      // Remove leading abbreviation patterns.
+      // Check if it starts with "m. y f." (which is common for "perro")
+      if (/^m\. ?y ?f\./i.test(metaContent)) {
+        metaContent = metaContent.replace(/^m\. ?y ?f\.\s*/i, '');
+      } else if (/^1\.\s*f\./i.test(metaContent)) {
+        metaContent = metaContent.replace(/^1\.\s*f\.\s*/i, '');
       }
+      
+      // Now split the remaining text into sentences.
+      // We assume that a period followed by a space is a sentence delimiter.
+      const sentences = metaContent.split(/\. +/);
+      let definition = sentences[0].trim();
+      
       return res.json({ word, definition });
     } else {
       return res.json({ word, definition: "Definition not found." });

@@ -22,23 +22,44 @@ module.exports = async (req, res) => {
     
     const text = await response.text();
     
-    // Extract the meta description content using regex
-    const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
-    if (metaMatch) {
-      let metaContent = metaMatch[1].trim();
-      
-      // Remove leading abbreviation patterns.
-      // Check if it starts with "m. y f." (which is common for "perro")
-      if (/^m\. ?y ?f\./i.test(metaContent)) {
-        metaContent = metaContent.replace(/^m\. ?y ?f\.\s*/i, '');
-      } else if (/^1\.\s*f\./i.test(metaContent)) {
-        metaContent = metaContent.replace(/^1\.\s*f\.\s*/i, '');
+    // Attempt to extract JSON-LD script content
+    const ldScriptMatch = text.match(/<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/i);
+    let definition = null;
+    if (ldScriptMatch) {
+      try {
+        const jsonLD = JSON.parse(ldScriptMatch[1]);
+        // If jsonLD is an array, iterate through it.
+        if (Array.isArray(jsonLD)) {
+          for (const obj of jsonLD) {
+            if (obj["@id"] && obj["@id"].toLowerCase() === `https://dle.rae.es/${word.toLowerCase()}`) {
+              definition = obj.description;
+              break;
+            }
+          }
+        } else if (typeof jsonLD === "object" && jsonLD["@id"] && jsonLD["@id"].toLowerCase() === `https://dle.rae.es/${word.toLowerCase()}`) {
+          definition = jsonLD.description;
+        }
+      } catch (e) {
+        // JSON parsing failed; fallback later
       }
+    }
+    
+    // Fallback: if JSON-LD extraction failed, try the meta tag approach
+    if (!definition) {
+      const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
+      if (metaMatch) {
+        definition = metaMatch[1].trim();
+      }
+    }
+    
+    if (definition) {
+      // Remove common leading markers. For example, remove "m. y f." or "1. f." at the start.
+      definition = definition.replace(/^(m\. ?y ?f\.|(\d+\.\s*f\.))\s*/i, '');
       
-      // Now split the remaining text into sentences.
-      // We assume that a period followed by a space is a sentence delimiter.
-      const sentences = metaContent.split(/\. +/);
-      let definition = sentences[0].trim();
+      // Now, if the definition includes multiple numbered parts, split on a number marker like "2."
+      // We assume the first definition is the core definition.
+      const parts = definition.split(/\d+\./);
+      definition = parts[0].trim();
       
       return res.json({ word, definition });
     } else {

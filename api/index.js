@@ -22,15 +22,25 @@ module.exports = async (req, res) => {
     
     const text = await response.text();
     
-    // Use regex to extract the definition text.
-    // This regex looks for the content inside a <p class="j"> ... </p> tag.
-    const match = text.match(/<p class="j">([\s\S]*?)<\/p>/);
-    const definition = match
-      ? match[1].replace(/<[^>]+>/g, '').trim()  // Remove any HTML tags and trim whitespace
-      : "Definition not found.";
-    
-    res.json({ word, definition });
+    // Extract meta description using regex
+    const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
+    if (metaMatch) {
+      let metaContent = metaMatch[1].trim();
+      // Remove the leading marker "1. f." if present
+      metaContent = metaContent.replace(/^1\.\s*f\.\s*/i, '');
+      // Split the string into sentences using the period as a delimiter
+      const sentences = metaContent.split('.');
+      // Take the first sentence (the definition) and trim any extra spaces
+      let definition = sentences[0].trim();
+      // If the first sentence is empty, set a fallback message
+      if (!definition) {
+        definition = "Definition not found.";
+      }
+      return res.json({ word, definition });
+    } else {
+      return res.json({ word, definition: "Definition not found." });
+    }
   } catch (error) {
-    res.status(500).json({ error: "Server error", details: error.message });
+    return res.status(500).json({ error: "Server error", details: error.message });
   }
 };

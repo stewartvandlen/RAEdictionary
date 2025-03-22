@@ -3,6 +3,7 @@ const fetch = require("node-fetch");
 
 const app = express();
 
+// Listen on the root path. Vercel routes /api/define to this function.
 app.get("/", async (req, res) => {
   const word = req.query.word;
   
@@ -25,6 +26,7 @@ app.get("/", async (req, res) => {
     }
 
     const text = await response.text();
+    // For debugging: return the full HTML
     res.send(text);
   } catch (error) {
     res.status(500).json({ error: "Server error", details: error.message });

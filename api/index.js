@@ -22,49 +22,52 @@ module.exports = async (req, res) => {
     
     const text = await response.text();
     
-    // Attempt to extract JSON-LD script content
+    let definition = "";
+
+    // Attempt JSON‑LD extraction first
     const ldScriptMatch = text.match(/<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/i);
-    let definition = null;
     if (ldScriptMatch) {
       try {
         const jsonLD = JSON.parse(ldScriptMatch[1]);
-        // If jsonLD is an array, iterate through it.
         if (Array.isArray(jsonLD)) {
           for (const obj of jsonLD) {
-            if (obj["@id"] && obj["@id"].toLowerCase() === `https://dle.rae.es/${word.toLowerCase()}`) {
-              definition = obj.description;
+            if (
+              obj["@id"] &&
+              obj["@id"].toLowerCase() === `https://dle.rae.es/${word.toLowerCase()}`
+            ) {
+              definition = obj.description || "";
               break;
             }
           }
-        } else if (typeof jsonLD === "object" && jsonLD["@id"] && jsonLD["@id"].toLowerCase() === `https://dle.rae.es/${word.toLowerCase()}`) {
-          definition = jsonLD.description;
+        } else if (
+          typeof jsonLD === "object" &&
+          jsonLD["@id"] &&
+          jsonLD["@id"].toLowerCase() === `https://dle.rae.es/${word.toLowerCase()}`
+        ) {
+          definition = jsonLD.description || "";
         }
       } catch (e) {
-        // JSON parsing failed; fallback later
+        // JSON parsing failed; ignore and fallback.
       }
     }
     
-    // Fallback: if JSON-LD extraction failed, try the meta tag approach
-    if (!definition) {
+    // Fallback: if the extracted definition is empty or seems invalid (only digits), use meta description.
+    if (!definition || definition.trim() === "" || /^\d+$/.test(definition.trim())) {
       const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
       if (metaMatch) {
         definition = metaMatch[1].trim();
       }
     }
     
-    if (definition) {
-      // Remove common leading markers. For example, remove "m. y f." or "1. f." at the start.
-      definition = definition.replace(/^(m\. ?y ?f\.|(\d+\.\s*f\.))\s*/i, '');
-      
-      // Now, if the definition includes multiple numbered parts, split on a number marker like "2."
-      // We assume the first definition is the core definition.
-      const parts = definition.split(/\d+\./);
-      definition = parts[0].trim();
-      
-      return res.json({ word, definition });
-    } else {
-      return res.json({ word, definition: "Definition not found." });
-    }
+    // Clean the definition:
+    // Remove leading markers like "m. y f." or "1. f." if present.
+    definition = definition.replace(/^(m\. ?y ?f\.|(\d+\.\s*f\.))\s*/i, '');
+    
+    // Split by a period followed by space; assume the first sentence is the core definition.
+    const sentences = definition.split(/\. +/);
+    definition = sentences[0].trim();
+    
+    return res.json({ word, definition });
   } catch (error) {
     return res.status(500).json({ error: "Server error", details: error.message });
   }

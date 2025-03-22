@@ -26,7 +26,8 @@ app.get("/define", async (req, res) => {
 
         const text = await response.text();
 
-        // 🔍 Debug: Send the full HTML response (temporarily)
+        // Here, for debugging, we're just returning the full HTML.
+        // Later, you can change this to extract the definition.
         res.send(text);
     } catch (error) {
         res.status(500).json({ error: "Server error", details: error.message });

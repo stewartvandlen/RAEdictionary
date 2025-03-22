@@ -26,11 +26,8 @@ app.get("/define", async (req, res) => {
 
         const text = await response.text();
 
-        // Extract the definition using regex
-        const match = text.match(/<p class="j">([\s\S]*?)<\/p>/);
-        const definition = match ? match[1].replace(/<[^>]+>/g, '') : "Definition not found.";
-
-        res.json({ word, definition });
+        // 🔍 Debug: Send the full HTML response (temporarily)
+        res.send(text);
     } catch (error) {
         res.status(500).json({ error: "Server error", details: error.message });
     }

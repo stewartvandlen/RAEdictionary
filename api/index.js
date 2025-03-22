@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
     const text = await response.text();
     
     let definition = "";
-
+    
     // Attempt JSON‑LD extraction first
     const ldScriptMatch = text.match(/<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/i);
     if (ldScriptMatch) {
@@ -47,11 +47,11 @@ module.exports = async (req, res) => {
           definition = jsonLD.description || "";
         }
       } catch (e) {
-        // JSON parsing failed; ignore and fallback.
+        // ignore JSON parsing errors
       }
     }
     
-    // Fallback: if the extracted definition is empty or seems invalid (only digits), use meta description.
+    // Fallback to meta description if JSON-LD is empty or only digits
     if (!definition || definition.trim() === "" || /^\d+$/.test(definition.trim())) {
       const metaMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"\/?>/i);
       if (metaMatch) {
@@ -59,13 +59,24 @@ module.exports = async (req, res) => {
       }
     }
     
-    // Clean the definition:
-    // Remove leading markers like "m. y f." or "1. f." if present.
-    definition = definition.replace(/^(m\. ?y ?f\.|(\d+\.\s*f\.))\s*/i, '');
+    // If the definition still appears invalid (e.g. just "1"), use a fallback:
+    if (!definition || /^\d+$/.test(definition.trim())) {
+      // Try to extract the first <li> element with class "j"
+      const liMatch = text.match(/<li[^>]*class="[^"]*\bj\b[^"]*"[^>]*>([\s\S]*?)<\/li>/i);
+      if (liMatch) {
+        // Remove HTML tags
+        let rawDef = liMatch[1].replace(/<[^>]+>/g, ' ').trim();
+        // Remove any leading numbering and markers (like "1. f." or "1. m. y f.")
+        rawDef = rawDef.replace(/^\d+\.\s*[mf\.]*\s*/i, '');
+        definition = rawDef;
+      }
+    }
     
-    // Split by a period followed by space; assume the first sentence is the core definition.
-    const sentences = definition.split(/\. +/);
-    definition = sentences[0].trim();
+    // Optionally, you might want to further split by a period and take the first sentence:
+    if (definition) {
+      const sentences = definition.split(/\. +/);
+      definition = sentences[0].trim();
+    }
     
     return res.json({ word, definition });
   } catch (error) {

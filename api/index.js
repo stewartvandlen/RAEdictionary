@@ -1,13 +1,11 @@
 const fetch = require("node-fetch");
 
 module.exports = async (req, res) => {
-  // Get the query parameter "word"
   const { word } = req.query;
-  
   if (!word) {
     return res.status(400).json({ error: "No word provided" });
   }
-  
+
   const raeUrl = `https://dle.rae.es/${encodeURIComponent(word)}`;
   
   try {
@@ -23,9 +21,15 @@ module.exports = async (req, res) => {
     }
     
     const text = await response.text();
-    // For debugging: return the HTML text
-    res.setHeader("Content-Type", "text/html");
-    res.send(text);
+    
+    // Use regex to extract the definition text.
+    // This regex looks for the content inside a <p class="j"> ... </p> tag.
+    const match = text.match(/<p class="j">([\s\S]*?)<\/p>/);
+    const definition = match
+      ? match[1].replace(/<[^>]+>/g, '').trim()  // Remove any HTML tags and trim whitespace
+      : "Definition not found.";
+    
+    res.json({ word, definition });
   } catch (error) {
     res.status(500).json({ error: "Server error", details: error.message });
   }
